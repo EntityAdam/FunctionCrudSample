@@ -1,22 +1,24 @@
-using Microsoft.Azure.Cosmos;
+using Azure.Core.Serialization;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Azure.Functions.Worker.Converters;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
-var host = new HostBuilder().ConfigureFunctionsWorkerDefaults(options =>
-{
-    options.Services.AddOptions<CosmosDBExtensionOptions>().Configure<IOptions<WorkerOptions>>((cosmos, worker) =>
+var host = new HostBuilder()
+    .ConfigureFunctionsWorkerDefaults()
+    .ConfigureServices(serviceCollection =>
     {
-        cosmos.ClientOptions.SerializerOptions.PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase;
-    });
-
-    options.ConfigureCosmosDBExtensionOptions(options =>
-    {
-        options.ClientOptions.SerializerOptions.PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase;
-    });
-
-}).Build();
+        // Configuring the functions worker with a the Azure Core JsonSerializer
+        // that will work with CosmosDbInput / CosmosDbOutput bindings.
+        serviceCollection.Configure<WorkerOptions>(workerOptions =>
+        {
+            workerOptions.Serializer = new JsonObjectSerializer(new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            });
+        });
+    }).Build();
 
 await host.RunAsync();
